@@ -165,42 +165,26 @@ function sizeCanvas(){
 // ── GPS — uses polling via getCurrentPosition (most reliable on iOS) ──
 function startGPS(){
   if(!navigator.geolocation){ startDemo(); return; }
+
+  // Use BOTH watchPosition and polling — whichever updates wins
+  watchId = navigator.geolocation.watchPosition(
+    pos => handleGPSPos(pos, 'watch'),
+    err => console.log('watch err:', err.message),
+    { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+  );
+
   doGPSPoll();
+
   // Fallback to demo after 8s if no lock
   setTimeout(()=>{ if(!originLat) startDemo(); }, 8000);
 }
 
 let lastGPSTimestamp = 0;
+let watchId = null;
 
 function doGPSPoll(){
   navigator.geolocation.getCurrentPosition(
-    pos => {
-      gpsCount++;
-      const lat=pos.coords.latitude;
-      const lng=pos.coords.longitude;
-      const acc=Math.round(pos.coords.accuracy);
-      const ts=pos.timestamp;
-
-      // Check if this is actually a fresh reading
-      const isFresh = ts > lastGPSTimestamp;
-      const ageMs = Date.now() - ts;
-      lastGPSTimestamp = ts;
-
-      if(!originLat){
-        originLat=lat; originLng=lng;
-        posX=0; posY=0;
-        placeQuests();
-      } else if(isFresh) {
-        posX = (lng-originLng)*111320*Math.cos(originLat*Math.PI/180);
-        posY = -((lat-originLat)*111320);
-      }
-
-      setDebug(`GPS ±${acc}m | updates: ${gpsCount} | age: ${(ageMs/1000).toFixed(0)}s<br>x: ${posX.toFixed(1)}m  y: ${posY.toFixed(1)}m<br>lat: ${lat.toFixed(6)}  lng: ${lng.toFixed(6)}<br>fresh: ${isFresh}`);
-      checkProx(); updatePanel();
-
-      // Next poll — shorter interval for better tracking
-      setTimeout(doGPSPoll, 1500);
-    },
+    pos => handleGPSPos(pos, 'poll'),
     err => {
       setDebug(`GPS err (${err.code}): ${err.message}`);
       if(!originLat) startDemo();
@@ -208,6 +192,34 @@ function doGPSPoll(){
     },
     { enableHighAccuracy:true, timeout:8000, maximumAge:500 }
   );
+  setTimeout(doGPSPoll, 1500);
+}
+
+function handleGPSPos(pos, source) {
+  gpsCount++;
+  const lat=pos.coords.latitude;
+  const lng=pos.coords.longitude;
+  const acc=Math.round(pos.coords.accuracy);
+  const ts=pos.timestamp;
+  const ageMs=Date.now()-ts;
+  const isFresh=ts>lastGPSTimestamp;
+  if(isFresh) lastGPSTimestamp=ts;
+
+  if(!originLat){
+    originLat=lat; originLng=lng;
+    posX=0; posY=0;
+    placeQuests();
+  } else {
+    const newX=(lng-originLng)*111320*Math.cos(originLat*Math.PI/180);
+    const newY=-((lat-originLat)*111320);
+    // Only update if moved more than 1m (filter GPS jitter)
+    if(Math.abs(newX-posX)>1 || Math.abs(newY-posY)>1){
+      posX=newX; posY=newY;
+    }
+  }
+
+  setDebug(`GPS ±${acc}m | ${source} #${gpsCount} | age:${(ageMs/1000).toFixed(0)}s<br>x: ${posX.toFixed(1)}m  y: ${posY.toFixed(1)}m<br>lat: ${lat.toFixed(6)}  lng: ${lng.toFixed(6)}<br>fresh: ${isFresh} | origin: ${originLat?'SET':'...'}`);
+  checkProx(); updatePanel();
 }
 
 function startDemo(){
