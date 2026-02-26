@@ -113,7 +113,7 @@ const QUESTS = [
   { id:'templar',   name:'The Templar Cipher',     icon:'⚔️',  tokens:50,  radius:25,
     desc:'"Seek the ancient seal near the fortress walls. The knights buried their secrets where the river meets the stone."',
     lore:'You found a Templar seal — marked with the cross of the warrior monks who once guarded Portugal\'s frontier.',
-    offset:{x:20,y:-20} },
+    offset:{x:120,y:-80} },
   { id:'moorish',   name:'The Moorish Scroll',      icon:'📜',  tokens:75,  radius:25,
     desc:'"In the shadow of the minaret turned church, a scroll waits for eyes that dare read the old tongue."',
     lore:'An ancient Arabic scroll describes the city before the Reconquista — vibrant markets, fountains, a living world.',
@@ -137,6 +137,8 @@ let demoMode=false;
 let keys={};
 let W=0,H=0,canvas,ctx;
 let lastTouch=null;
+let heading=0; // compass heading degrees, 0=north
+let smoothHeading=0;
 const SCALE=1.8;
 
 // ── START ──
@@ -147,6 +149,7 @@ document.getElementById('start-btn').addEventListener('click', ()=>{
   buildPOI();
   requestAnimationFrame(drawLoop);
   startGPS();
+  initCompass();
 });
 
 // ── CANVAS ──
@@ -205,6 +208,11 @@ function handleGPSPos(pos, source) {
   const isFresh=ts>lastGPSTimestamp;
   if(isFresh) lastGPSTimestamp=ts;
 
+  // Use device heading from GPS if available (only when moving)
+  if(pos.coords.heading!=null && !isNaN(pos.coords.heading) && pos.coords.speed>0.5){
+    heading=pos.coords.heading;
+  }
+
   if(!originLat){
     originLat=lat; originLng=lng;
     posX=0; posY=0;
@@ -212,13 +220,12 @@ function handleGPSPos(pos, source) {
   } else {
     const newX=(lng-originLng)*111320*Math.cos(originLat*Math.PI/180);
     const newY=-((lat-originLat)*111320);
-    // Only update if moved more than 1m (filter GPS jitter)
-    if(Math.abs(newX-posX)>1 || Math.abs(newY-posY)>1){
+    if(Math.abs(newX-posX)>0.5 || Math.abs(newY-posY)>0.5){
       posX=newX; posY=newY;
     }
   }
 
-  setDebug(`GPS ±${acc}m | ${source} #${gpsCount} | age:${(ageMs/1000).toFixed(0)}s<br>x: ${posX.toFixed(1)}m  y: ${posY.toFixed(1)}m<br>lat: ${lat.toFixed(6)}  lng: ${lng.toFixed(6)}<br>fresh: ${isFresh} | origin: ${originLat?'SET':'...'}`);
+  setDebug(`GPS ±${acc}m | ${source} #${gpsCount} | age:${(ageMs/1000).toFixed(0)}s<br>x: ${posX.toFixed(1)}m  y: ${posY.toFixed(1)}m<br>lat: ${lat.toFixed(6)}  lng: ${lng.toFixed(6)}`);
   checkProx(); updatePanel();
 }
 
@@ -306,13 +313,26 @@ function drawLoop(){
   ctx.clearRect(0,0,W,H);
   const cx=W/2, cy=H/2, t=Date.now();
 
+  // Smooth heading interpolation
+  let diff = heading - smoothHeading;
+  if(diff > 180) diff -= 360;
+  if(diff < -180) diff += 360;
+  smoothHeading += diff * 0.08;
+
+  const rot = smoothHeading * Math.PI / 180; // radians, rotate map so north is up relative to device
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-rot);
+  ctx.translate(-cx, -cy);
+
   // Grid
   ctx.strokeStyle='rgba(201,168,76,0.04)'; ctx.lineWidth=1;
   const gs=50;
   const ox=((cx-posX*SCALE)%gs+gs)%gs;
   const oy=((cy-posY*SCALE)%gs+gs)%gs;
-  for(let x=ox;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  for(let y=oy;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  for(let x=ox-gs;x<W+gs;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=oy-gs;y<H+gs;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
 
   // Quests
   QUESTS.forEach((q,i)=>{
@@ -321,50 +341,86 @@ function drawLoop(){
     const qy=cy+(qPos[i].y-posY)*SCALE;
     const isF=found.has(q.id), isA=i===activeIdx;
 
-    // Dashed line to active
     if(isA&&!isF){
       ctx.save(); ctx.setLineDash([4,6]);
       ctx.strokeStyle='rgba(201,168,76,0.1)'; ctx.lineWidth=1;
       ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(qx,qy); ctx.stroke();
       ctx.restore();
     }
-
-    // Pulse
     if(isA&&!isF){
       const p=0.5+0.5*Math.sin(t/500);
       ctx.beginPath(); ctx.arc(qx,qy,q.radius*SCALE*(1+p*0.35),0,Math.PI*2);
       ctx.strokeStyle=`rgba(201,168,76,${0.1*p})`; ctx.lineWidth=1; ctx.stroke();
     }
-
-    // Radius
     ctx.beginPath(); ctx.arc(qx,qy,q.radius*SCALE,0,Math.PI*2);
     ctx.strokeStyle=isF?'rgba(74,154,90,0.2)':isA?'rgba(201,168,76,0.2)':'rgba(201,168,76,0.06)';
     ctx.lineWidth=1; ctx.stroke();
     ctx.fillStyle=isF?'rgba(74,154,90,0.04)':isA?'rgba(201,168,76,0.04)':'transparent';
     ctx.fill();
 
-    // Marker
     ctx.beginPath(); ctx.arc(qx,qy,14,0,Math.PI*2);
     ctx.fillStyle=isF?'#0d2a12':isA?'rgba(201,168,76,0.12)':'rgba(10,7,5,0.85)';
     ctx.fill();
     ctx.strokeStyle=isF?'#4a9a5a':isA?'#c9a84c':'rgba(201,168,76,0.25)';
     ctx.lineWidth=isA?2:1; ctx.stroke();
-
     ctx.font='13px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(q.icon,qx,qy);
-
     ctx.font='9px serif'; ctx.textBaseline='top';
     ctx.fillStyle=isF?'#4a9a5a':isA?'#c9a84c':'rgba(201,168,76,0.4)';
     ctx.fillText(q.name,qx,qy+17);
   });
 
-  // Player
+  ctx.restore(); // end rotated context
+
+  // Player dot (always center, always upright)
   const p2=0.5+0.5*Math.sin(t/350);
-  ctx.beginPath(); ctx.arc(cx,cy,12+p2*2,0,Math.PI*2);
-  ctx.strokeStyle=`rgba(201,168,76,${0.12*p2})`; ctx.lineWidth=2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,14+p2*2,0,Math.PI*2);
+  ctx.strokeStyle=`rgba(201,168,76,${0.1*p2})`; ctx.lineWidth=2; ctx.stroke();
   ctx.beginPath(); ctx.arc(cx,cy,7,0,Math.PI*2);
   ctx.fillStyle='#c9a84c'; ctx.fill();
   ctx.strokeStyle='#f0d080'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Direction arrow (points where you're facing = always up since map rotates)
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.moveTo(0, -22);
+  ctx.lineTo(5, -10);
+  ctx.lineTo(-5, -10);
+  ctx.closePath();
+  ctx.fillStyle='rgba(240,208,128,0.7)';
+  ctx.fill();
+  ctx.restore();
+
+  // North label (rotates with map feel — drawn in map space)
+  // Small N indicator top of screen
+  ctx.save();
+  ctx.font='bold 11px serif';
+  ctx.fillStyle='rgba(201,168,76,0.4)';
+  ctx.textAlign='center';
+  ctx.fillText('N', cx, 20);
+  ctx.restore();
+}
+
+// ── COMPASS from device orientation ──
+function initCompass(){
+  // iOS 13+ requires permission
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    DeviceOrientationEvent.requestPermission().then(state=>{
+      if(state==='granted') listenOrientation();
+    }).catch(()=>{});
+  } else {
+    listenOrientation();
+  }
+}
+function listenOrientation(){
+  window.addEventListener('deviceorientationabsolute', e=>{
+    if(e.alpha!=null) heading = (360 - e.alpha) % 360;
+  }, true);
+  window.addEventListener('deviceorientation', e=>{
+    if(e.webkitCompassHeading!=null) heading = e.webkitCompassHeading; // iOS
+    else if(e.alpha!=null) heading = (360 - e.alpha) % 360;
+  }, true);
 }
 
 // ── DEBUG ──
