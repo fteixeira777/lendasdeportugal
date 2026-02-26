@@ -430,6 +430,7 @@
         <div class="gps-dot searching" id="gps-dot"></div>
         <span id="gps-label">Locating...</span>
       </div>
+      <div id="debug-box" style="margin-top:0.3rem;font-size:0.55rem;color:rgba(201,168,76,0.65);line-height:1.7;font-family:monospace;"></div>
     </div>
     <div class="score-area">
       <div class="score-label">Tokens Earned</div>
@@ -573,14 +574,27 @@ function startGame() {
   }
 }
 
-let originLat = null, originLng = null;
+let gpsCallCount = 0;
 
 function onGPS(pos) {
+  gpsCallCount++;
   userLat = pos.coords.latitude;
   userLng = pos.coords.longitude;
 
   document.getElementById('gps-dot').classList.remove('searching');
   document.getElementById('gps-label').textContent = `GPS ±${Math.round(pos.coords.accuracy)}m`;
+
+  // Debug info
+  const debug = document.getElementById('debug-box');
+  if (debug) {
+    debug.innerHTML = `
+      updates: ${gpsCallCount}<br>
+      lat: ${userLat.toFixed(6)}<br>
+      lng: ${userLng.toFixed(6)}<br>
+      originSet: ${!!originLat}<br>
+      x: ${userX.toFixed(1)}m &nbsp; y: ${userY.toFixed(1)}m
+    `;
+  }
 
   // First lock — store origin and init
   if (!originLat) {
