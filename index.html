@@ -573,26 +573,31 @@ function startGame() {
   }
 }
 
+let originLat = null, originLng = null;
+
 function onGPS(pos) {
-  const prevLat = userLat, prevLng = userLng;
   userLat = pos.coords.latitude;
   userLng = pos.coords.longitude;
 
   document.getElementById('gps-dot').classList.remove('searching');
   document.getElementById('gps-label').textContent = `GPS ±${Math.round(pos.coords.accuracy)}m`;
 
-  if (!questPositions.length) {
+  // First lock — store origin and init
+  if (!originLat) {
+    originLat = userLat;
+    originLng = userLng;
+    userX = 0;
+    userY = 0;
     initQuestPositions();
-  } else if (window._forceMapMode && prevLat) {
-    // Convert real GPS movement to map x/y offset
-    const dx = (userLng - prevLng) * 111320 * Math.cos(userLat * Math.PI / 180);
-    const dy = (userLat - prevLat) * 111320;
-    userX += dx;
-    userY -= dy; // invert Y for screen coords
+    return;
   }
 
+  // Absolute offset from origin in metres
+  userX = (userLng - originLng) * 111320 * Math.cos(originLat * Math.PI / 180);
+  userY = -((userLat - originLat) * 111320);
+
   updateGameUI();
-  if (window._forceMapMode) drawMap();
+  if (window._forceMapMode || demoMode) drawMap();
 }
 
 function onGPSError() {
@@ -657,6 +662,7 @@ function getDistance(idx) {
     const dy = questPositions[idx].y - userY;
     return Math.sqrt(dx*dx + dy*dy);
   } else {
+    // Always use real GPS haversine when we have coordinates
     return haversine(userLat, userLng, questPositions[idx].lat, questPositions[idx].lng);
   }
 }
