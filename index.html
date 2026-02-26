@@ -1,987 +1,382 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>LENDAS DE PORTUGAL — AR Quest</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
-
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>LENDAS DE PORTUGAL</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--gold:#c9a84c;--gold-light:#f0d080;--dark:#0a0705}
+    body{font-family:'Crimson Pro',serif;background:var(--dark);color:#e8d9b0;height:100vh;overflow:hidden}
 
-    :root {
-      --gold: #c9a84c;
-      --gold-light: #f0d080;
-      --dark: #0a0705;
-      --parchment: #1a1208;
-      --red: #8b1a1a;
-      --green: #1a4a2a;
-    }
+    .screen{position:fixed;inset:0;z-index:100;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;padding:2rem;background:var(--dark)}
+    .screen.active{display:flex}
+    .emblem{width:110px;height:110px;border:2px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;animation:spin 10s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .emblem svg{width:55px;height:55px}
+    h1{font-family:'Cinzel Decorative',serif;font-size:1.3rem;color:var(--gold);text-align:center;line-height:1.5}
+    .sub{font-style:italic;color:rgba(232,217,176,0.5);font-size:.9rem;text-align:center}
+    .btn{font-family:'Cinzel Decorative',serif;font-size:.8rem;letter-spacing:.15em;padding:.9rem 2.5rem;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;transition:all .3s}
+    .btn:active{background:var(--gold);color:var(--dark)}
+    .hint{font-size:.65rem;color:rgba(232,217,176,0.25);text-align:center;line-height:1.8}
 
-    body {
-      font-family: 'Crimson Pro', serif;
-      background: var(--dark);
-      color: #e8d9b0;
-      height: 100vh;
-      overflow: hidden;
-      position: relative;
-    }
+    #game{display:none;position:fixed;inset:0;flex-direction:column}
+    #game.active{display:flex}
+    #map-wrap{flex:1;position:relative;overflow:hidden;background:#0d0b08}
+    canvas{position:absolute;inset:0;width:100%;height:100%}
 
-    /* ── LOADING SCREEN ── */
-    #loading-screen {
-      position: fixed; inset: 0; z-index: 9999;
-      background: var(--dark);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 2rem;
-      transition: opacity 0.8s ease;
-    }
-    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+    #debug{position:absolute;top:8px;left:8px;right:120px;font-family:monospace;font-size:.58rem;color:rgba(201,168,76,.85);background:rgba(10,7,5,.8);padding:6px 10px;border-radius:3px;line-height:1.9;pointer-events:none;z-index:10;border:1px solid rgba(201,168,76,.15)}
+    #topright{position:absolute;top:8px;right:8px;text-align:right;z-index:10}
+    .tokens-label{font-size:.55rem;letter-spacing:.1em;color:rgba(232,217,176,.4)}
+    .tokens-val{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold-light)}
 
-    .loading-emblem {
-      width: 120px; height: 120px;
-      border: 2px solid var(--gold);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      position: relative;
-      animation: rotate-slow 8s linear infinite;
-    }
-    .loading-emblem::before {
-      content: '';
-      position: absolute; inset: 8px;
-      border: 1px solid rgba(201,168,76,0.3);
-      border-radius: 50%;
-    }
-    .loading-emblem svg { width: 60px; height: 60px; }
-    @keyframes rotate-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    #panel{background:linear-gradient(to bottom,rgba(10,7,5,0),rgba(10,7,5,.98));padding:1rem 1.2rem 1.4rem}
+    .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}
+    .quest-tag{font-size:.58rem;letter-spacing:.2em;color:var(--gold);opacity:.7}
+    .quest-name{font-family:'Cinzel Decorative',serif;font-size:.9rem;color:var(--gold-light);margin-bottom:.25rem}
+    .quest-lore{font-style:italic;font-size:.82rem;color:rgba(232,217,176,.6);line-height:1.45;margin-bottom:.7rem}
+    .dist-row{display:flex;align-items:center;gap:.7rem;margin-bottom:.7rem}
+    .dist-label{font-size:.6rem;letter-spacing:.1em;color:rgba(232,217,176,.35);min-width:55px}
+    .dist-bar{flex:1;height:2px;background:rgba(201,168,76,.12);border-radius:1px;overflow:hidden}
+    .dist-fill{height:100%;background:var(--gold);transition:width .8s ease;width:0%}
+    .dist-val{font-family:'Cinzel Decorative',serif;font-size:.72rem;color:var(--gold);min-width:48px;text-align:right}
+    .poi-list{display:flex;gap:.5rem;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+    .poi-list::-webkit-scrollbar{display:none}
+    .poi-card{flex-shrink:0;width:105px;border:1px solid rgba(201,168,76,.18);padding:.55rem;cursor:pointer;transition:all .2s;background:rgba(10,7,5,.5)}
+    .poi-card.active{border-color:var(--gold);background:rgba(201,168,76,.07)}
+    .poi-card.found{border-color:#4a9a5a;background:rgba(26,74,42,.2)}
+    .poi-icon{font-size:1.2rem;margin-bottom:.15rem}
+    .poi-name{font-size:.62rem;font-family:'Cinzel Decorative',serif;color:var(--gold-light);line-height:1.3}
+    .poi-dist{font-size:.58rem;color:rgba(232,217,176,.3);margin-top:.1rem}
+    .poi-found{font-size:.58rem;color:#4a9a5a;margin-top:.1rem}
 
-    .loading-title {
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 1.4rem;
-      color: var(--gold);
-      text-align: center;
-      letter-spacing: 0.1em;
-      line-height: 1.4;
-    }
-    .loading-subtitle {
-      font-size: 1rem;
-      color: rgba(232,217,176,0.6);
-      font-style: italic;
-      text-align: center;
-    }
-
-    .start-btn {
-      background: transparent;
-      border: 1px solid var(--gold);
-      color: var(--gold);
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 0.85rem;
-      letter-spacing: 0.15em;
-      padding: 1rem 2.5rem;
-      cursor: pointer;
-      transition: all 0.3s;
-      position: relative;
-      overflow: hidden;
-    }
-    .start-btn::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: var(--gold);
-      transform: scaleX(0);
-      transform-origin: left;
-      transition: transform 0.3s ease;
-      z-index: -1;
-    }
-    .start-btn:hover { color: var(--dark); }
-    .start-btn:hover::before { transform: scaleX(1); }
-
-    /* ── MAIN GAME UI (overlaid on AR scene) ── */
-    #game-ui {
-      position: fixed; inset: 0; z-index: 100;
-      pointer-events: none;
-      display: none;
-    }
-    #game-ui.active { display: block; }
-
-    /* top bar */
-    .top-bar {
-      position: absolute; top: 0; left: 0; right: 0;
-      padding: 1rem 1.5rem;
-      display: flex; align-items: flex-start; justify-content: space-between;
-      background: linear-gradient(to bottom, rgba(10,7,5,0.85), transparent);
-      pointer-events: auto;
-    }
-    .game-title {
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 0.75rem;
-      color: var(--gold);
-      letter-spacing: 0.15em;
-      opacity: 0.8;
-    }
-    .score-area {
-      text-align: right;
-    }
-    .score-label {
-      font-size: 0.65rem;
-      color: rgba(232,217,176,0.5);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-    .score-value {
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 1.1rem;
-      color: var(--gold-light);
-    }
-
-    /* compass */
-    .compass {
-      position: absolute; top: 50%; right: 1.5rem;
-      transform: translateY(-50%);
-      width: 60px; height: 60px;
-      pointer-events: none;
-    }
-    .compass-ring {
-      width: 100%; height: 100%;
-      border: 1px solid rgba(201,168,76,0.4);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      position: relative;
-    }
-    .compass-needle {
-      width: 2px; height: 24px;
-      background: linear-gradient(to bottom, var(--red) 50%, #e8d9b0 50%);
-      border-radius: 1px;
-      transform-origin: center bottom;
-      transition: transform 0.5s ease;
-    }
-    .compass-label {
-      position: absolute; top: -18px; left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.6rem; color: rgba(232,217,176,0.4);
-      letter-spacing: 0.05em;
-    }
-
-    /* quest panel */
-    .quest-panel {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      padding: 1.5rem;
-      background: linear-gradient(to top, rgba(10,7,5,0.95) 60%, transparent);
-      pointer-events: auto;
-    }
-    .quest-tag {
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--gold);
-      opacity: 0.7;
-      margin-bottom: 0.4rem;
-    }
-    .quest-name {
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 1rem;
-      color: var(--gold-light);
-      margin-bottom: 0.3rem;
-    }
-    .quest-desc {
-      font-size: 0.9rem;
-      font-style: italic;
-      color: rgba(232,217,176,0.7);
-      margin-bottom: 1rem;
-      line-height: 1.5;
-    }
-    .distance-bar-wrap {
-      display: flex; align-items: center; gap: 0.8rem;
-      margin-bottom: 1rem;
-    }
-    .distance-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      color: rgba(232,217,176,0.5);
-      min-width: 80px;
-    }
-    .distance-bar {
-      flex: 1; height: 2px;
-      background: rgba(201,168,76,0.15);
-      border-radius: 1px;
-      overflow: hidden;
-    }
-    .distance-fill {
-      height: 100%;
-      background: var(--gold);
-      width: 0%;
-      transition: width 1s ease;
-    }
-    .distance-val {
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 0.75rem;
-      color: var(--gold);
-      min-width: 55px;
-      text-align: right;
-    }
-
-    /* points of interest list */
-    .poi-list {
-      display: flex; gap: 0.8rem; overflow-x: auto;
-      padding-bottom: 0.5rem;
-      scrollbar-width: none;
-    }
-    .poi-list::-webkit-scrollbar { display: none; }
-    .poi-card {
-      flex-shrink: 0;
-      width: 120px;
-      border: 1px solid rgba(201,168,76,0.25);
-      padding: 0.7rem;
-      cursor: pointer;
-      transition: all 0.3s;
-      background: rgba(10,7,5,0.6);
-    }
-    .poi-card:hover, .poi-card.active {
-      border-color: var(--gold);
-      background: rgba(201,168,76,0.08);
-    }
-    .poi-card.found {
-      border-color: var(--green);
-      background: rgba(26,74,42,0.2);
-    }
-    .poi-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
-    .poi-name {
-      font-size: 0.7rem;
-      font-family: 'Cinzel Decorative', serif;
-      color: var(--gold-light);
-      line-height: 1.3;
-    }
-    .poi-dist {
-      font-size: 0.65rem;
-      color: rgba(232,217,176,0.4);
-      margin-top: 0.2rem;
-    }
-    .poi-found-badge {
-      font-size: 0.6rem;
-      color: #4a9a5a;
-      margin-top: 0.2rem;
-    }
-
-    /* ── FOUND POPUP ── */
-    #found-popup {
-      position: fixed; inset: 0; z-index: 500;
-      background: rgba(10,7,5,0.92);
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 1.5rem;
-      padding: 2rem;
-    }
-    #found-popup.show { display: flex; }
-
-    .found-glow {
-      width: 100px; height: 100px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(201,168,76,0.3), transparent 70%);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 3rem;
-      animation: pulse-glow 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 20px rgba(201,168,76,0.3); }
-      50% { box-shadow: 0 0 50px rgba(201,168,76,0.6); }
-    }
-    .found-title {
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 1.3rem;
-      color: var(--gold);
-      text-align: center;
-    }
-    .found-desc {
-      font-size: 1rem;
-      font-style: italic;
-      color: rgba(232,217,176,0.8);
-      text-align: center;
-      max-width: 300px;
-      line-height: 1.6;
-    }
-    .found-reward {
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 1.5rem;
-      color: var(--gold-light);
-    }
-    .found-reward-label {
-      font-size: 0.7rem;
-      letter-spacing: 0.15em;
-      color: rgba(201,168,76,0.6);
-      text-align: center;
-    }
-    .found-btn {
-      background: var(--gold);
-      border: none;
-      color: var(--dark);
-      font-family: 'Cinzel Decorative', serif;
-      font-size: 0.8rem;
-      letter-spacing: 0.1em;
-      padding: 0.9rem 2rem;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .found-btn:hover { background: var(--gold-light); }
-
-    /* ── GPS STATUS ── */
-    .gps-status {
-      position: absolute; top: 4rem; left: 1.5rem;
-      font-size: 0.65rem;
-      letter-spacing: 0.08em;
-      color: rgba(232,217,176,0.4);
-      display: flex; align-items: center; gap: 0.4rem;
-    }
-    .gps-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: #4a9a5a;
-      animation: blink 2s ease-in-out infinite;
-    }
-    .gps-dot.searching { background: var(--gold); }
-    @keyframes blink {
-      0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
-    }
-
-    /* ── AR SCENE WRAPPER ── */
-    #ar-container {
-      position: fixed; inset: 0; z-index: 1;
-      display: none;
-    }
-    #ar-container.active { display: block; }
-
-    /* ── DEMO MODE (no real GPS — for desktop testing) ── */
-    #demo-map {
-      position: fixed; inset: 0; z-index: 2;
-      background: #0d0b08;
-      display: none;
-      overflow: hidden;
-    }
-    #demo-map.active { display: block; }
-    .demo-label {
-      position: absolute; top: 1rem; left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.65rem; letter-spacing: 0.15em;
-      color: rgba(201,168,76,0.5);
-      background: rgba(10,7,5,0.8);
-      padding: 0.3rem 1rem;
-      border: 1px solid rgba(201,168,76,0.2);
-      z-index: 10;
-      pointer-events: none;
-    }
-    canvas#map-canvas {
-      width: 100%; height: 100%;
-    }
-
-    /* scrollbar for POI */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); }
+    #found-popup{position:fixed;inset:0;z-index:200;background:rgba(10,7,5,.94);display:none;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;padding:2rem}
+    #found-popup.show{display:flex}
+    .found-glow{width:85px;height:85px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,.2),transparent 70%);display:flex;align-items:center;justify-content:center;font-size:2.6rem;animation:glow 1.5s ease-in-out infinite}
+    @keyframes glow{0%,100%{box-shadow:0 0 18px rgba(201,168,76,.15)}50%{box-shadow:0 0 45px rgba(201,168,76,.45)}}
+    .found-title{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold);text-align:center}
+    .found-desc{font-style:italic;font-size:.88rem;color:rgba(232,217,176,.72);text-align:center;max-width:290px;line-height:1.55}
+    .found-rl{font-size:.58rem;letter-spacing:.15em;color:rgba(201,168,76,.45);text-align:center}
+    .found-rv{font-family:'Cinzel Decorative',serif;font-size:1.4rem;color:var(--gold-light);text-align:center}
   </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════
-     LOADING / START SCREEN
-═══════════════════════════════════════════ -->
-<div id="loading-screen">
-  <div class="loading-emblem">
-    <!-- Templar cross SVG -->
-    <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M30 5 L30 55 M5 30 L55 30" stroke="#c9a84c" stroke-width="3" stroke-linecap="round"/>
-      <path d="M30 5 L30 55 M5 30 L55 30" stroke="#c9a84c" stroke-width="3" stroke-linecap="round" opacity="0.3" transform="rotate(45 30 30)"/>
-      <circle cx="30" cy="30" r="6" fill="#c9a84c" opacity="0.6"/>
+<div class="screen active" id="start-screen">
+  <div class="emblem">
+    <svg viewBox="0 0 60 60" fill="none">
+      <path d="M30 5L30 55M5 30L55 30" stroke="#c9a84c" stroke-width="3" stroke-linecap="round"/>
+      <path d="M30 5L30 55M5 30L55 30" stroke="#c9a84c" stroke-width="3" stroke-linecap="round" opacity=".3" transform="rotate(45 30 30)"/>
+      <circle cx="30" cy="30" r="5" fill="#c9a84c" opacity=".7"/>
     </svg>
   </div>
-
-  <div>
-    <div class="loading-title">LENDAS<br/>DE PORTUGAL</div>
-    <div class="loading-subtitle" style="margin-top:0.5rem">Uncover the secrets of the old empire</div>
-  </div>
-
-  <button class="start-btn" id="start-btn">BEGIN THE QUEST</button>
-
-  <div style="font-size:0.65rem; color:rgba(232,217,176,0.25); text-align:center; max-width:260px; line-height:1.6;">
-    Requires camera & GPS access.<br/>
-    Works best outdoors on mobile Chrome.
-  </div>
+  <h1>LENDAS<br/>DE PORTUGAL</h1>
+  <p class="sub">Uncover the secrets of the old empire</p>
+  <button class="btn" id="start-btn">BEGIN THE QUEST</button>
+  <p class="hint">Allow location when asked.<br/>Best experienced outdoors on mobile.</p>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     DEMO MAP (desktop / no GPS fallback)
-═══════════════════════════════════════════ -->
-<div id="demo-map">
-  <div class="demo-label">⚔ DEMO MODE — Walk around to test the quest</div>
-  <canvas id="map-canvas"></canvas>
-</div>
-
-<!-- ═══════════════════════════════════════════
-     AR CONTAINER (mobile with GPS)
-═══════════════════════════════════════════ -->
-<div id="ar-container">
-  <!-- AR.js A-Frame scene injected here by JS -->
-</div>
-
-<!-- ═══════════════════════════════════════════
-     GAME UI (overlaid on both AR and demo)
-═══════════════════════════════════════════ -->
-<div id="game-ui">
-  <div class="top-bar">
-    <div>
-      <div class="game-title">LENDAS DE PORTUGAL</div>
-      <div class="gps-status" style="position:relative;top:auto;left:auto;margin-top:0.4rem">
-        <div class="gps-dot searching" id="gps-dot"></div>
-        <span id="gps-label">Locating...</span>
-      </div>
-      <div id="debug-box" style="margin-top:0.3rem;font-size:0.55rem;color:rgba(201,168,76,0.65);line-height:1.7;font-family:monospace;"></div>
-    </div>
-    <div class="score-area">
-      <div class="score-label">Tokens Earned</div>
-      <div class="score-value" id="token-count">⚜ 0</div>
+<div id="game">
+  <div id="map-wrap">
+    <canvas id="canvas"></canvas>
+    <div id="debug">Requesting GPS...</div>
+    <div id="topright">
+      <div class="tokens-label">TOKENS</div>
+      <div class="tokens-val" id="tokens">⚜ 0</div>
     </div>
   </div>
-
-  <div class="compass">
-    <div class="compass-ring">
-      <span class="compass-label">N</span>
-      <div class="compass-needle" id="compass-needle"></div>
+  <div id="panel">
+    <div class="quest-tag">ACTIVE QUEST</div>
+    <div class="quest-name" id="q-name">Waiting for location...</div>
+    <div class="quest-lore" id="q-lore">Stand outside and allow location access.</div>
+    <div class="dist-row">
+      <span class="dist-label">Distance</span>
+      <div class="dist-bar"><div class="dist-fill" id="dist-fill"></div></div>
+      <span class="dist-val" id="dist-val">— m</span>
     </div>
-  </div>
-
-  <div class="quest-panel">
-    <div class="quest-tag">Active Quest</div>
-    <div class="quest-name" id="quest-name">The Templar Cipher</div>
-    <div class="quest-desc" id="quest-desc">
-      "Seek the ancient seal hidden near the old fortress walls. The knights buried their secrets where the river meets the stone."
-    </div>
-
-    <div class="distance-bar-wrap">
-      <div class="distance-label">Distance</div>
-      <div class="distance-bar">
-        <div class="distance-fill" id="dist-fill"></div>
-      </div>
-      <div class="distance-val" id="dist-val">— m</div>
-    </div>
-
     <div class="poi-list" id="poi-list"></div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     FOUND POPUP
-═══════════════════════════════════════════ -->
 <div id="found-popup">
-  <div class="found-glow" id="found-icon">🗝️</div>
-  <div class="found-title" id="found-title">SECRET DISCOVERED</div>
-  <div class="found-desc" id="found-desc">You have uncovered a fragment of the old empire's hidden truth.</div>
-  <div>
-    <div class="found-reward-label">TOKENS AWARDED</div>
-    <div class="found-reward" id="found-reward">+50 ⚜</div>
-  </div>
-  <button class="found-btn" id="found-close">CONTINUE THE QUEST</button>
+  <div class="found-glow" id="f-icon">🗝️</div>
+  <div class="found-title" id="f-title"></div>
+  <div class="found-desc" id="f-desc"></div>
+  <div class="found-rl">TOKENS AWARDED</div>
+  <div class="found-rv" id="f-reward"></div>
+  <button class="btn" id="found-close">CONTINUE</button>
 </div>
 
-
-<!-- ═══════════════════════════════════════════
-     SCRIPTS
-═══════════════════════════════════════════ -->
 <script>
-// ── GAME DATA ─────────────────────────────────────────────────────────────
 const QUESTS = [
-  {
-    id: 'templar_seal',
-    name: 'The Templar Cipher',
-    icon: '⚔️',
-    desc: '"Seek the ancient seal hidden near the old fortress walls. The knights buried their secrets where the river meets the stone."',
-    lore: 'You found a Templar seal, marked with the cross of the warrior monks who once guarded Portugal\'s eastern frontier.',
-    tokens: 50,
-    radius: 30, // metres — trigger distance
-    color: '#c9a84c',
-    // DEMO position offset from user start (metres)
-    demoOffset: { x: 120, y: -80 }
-  },
-  {
-    id: 'moorish_scroll',
-    name: 'The Moorish Scroll',
-    icon: '📜',
-    desc: '"In the shadow of the minaret that was turned to a church, a scroll waits for eyes that dare to read the old tongue."',
-    lore: 'An ancient Arabic scroll describes the city as it was before the Reconquista — vibrant markets, fountains, a living city.',
-    tokens: 75,
-    radius: 30,
-    color: '#4a8a9a',
-    demoOffset: { x: -90, y: 150 }
-  },
-  {
-    id: 'navigator_compass',
-    name: 'The Navigator\'s Compass',
-    icon: '🧭',
-    desc: '"Where the caravels were born, a compass points not north but inward. Find it before the tide erases the mark."',
-    lore: 'A brass compass used by a navigator of the Age of Discovery — it still points toward the unknown.',
-    tokens: 100,
-    radius: 30,
-    color: '#9a6a3a',
-    demoOffset: { x: 200, y: 100 }
-  },
-  {
-    id: 'jewish_star',
-    name: 'The Hidden Star',
-    icon: '✡️',
-    desc: '"In the old Judiaria, carved into the stone where hands once lit hidden candles — a six-pointed star endures."',
-    lore: 'A Star of David carved secretly by conversos during the Inquisition, hidden in plain sight for five centuries.',
-    tokens: 80,
-    radius: 30,
-    color: '#7a9a4a',
-    demoOffset: { x: -150, y: -120 }
-  }
+  { id:'templar',   name:'The Templar Cipher',     icon:'⚔️',  tokens:50,  radius:25,
+    desc:'"Seek the ancient seal near the fortress walls. The knights buried their secrets where the river meets the stone."',
+    lore:'You found a Templar seal — marked with the cross of the warrior monks who once guarded Portugal\'s frontier.',
+    offset:{x:120,y:-80} },
+  { id:'moorish',   name:'The Moorish Scroll',      icon:'📜',  tokens:75,  radius:25,
+    desc:'"In the shadow of the minaret turned church, a scroll waits for eyes that dare read the old tongue."',
+    lore:'An ancient Arabic scroll describes the city before the Reconquista — vibrant markets, fountains, a living world.',
+    offset:{x:-90,y:150} },
+  { id:'navigator', name:"The Navigator's Compass", icon:'🧭',  tokens:100, radius:25,
+    desc:'"Where the caravels were born, a compass points inward. Find it before the tide erases the mark."',
+    lore:'A brass compass used by a navigator of the Age of Discovery — it still points toward the unknown.',
+    offset:{x:200,y:100} },
+  { id:'star',      name:'The Hidden Star',          icon:'✡️',  tokens:80,  radius:25,
+    desc:'"In the old Judiaria, carved where hands once lit hidden candles — a six-pointed star endures."',
+    lore:'A Star of David carved secretly by conversos during the Inquisition, hidden in plain sight for centuries.',
+    offset:{x:-150,y:-120} }
 ];
 
-// ── STATE ─────────────────────────────────────────────────────────────────
-let tokens = 0;
-let foundIds = new Set();
-let activeQuestIdx = 0;
-let userLat = null, userLng = null;
-let userX = 0, userY = 0; // demo coords
-let demoMode = false;
-let questPositions = []; // filled after we know user position
-let compassAngle = 0;
+// STATE
+let totalTokens=0, found=new Set(), activeIdx=0, gpsCount=0;
+let originLat=null, originLng=null;
+let posX=0, posY=0;
+let qPos=[];
+let demoMode=false;
+let keys={};
+let W=0,H=0,canvas,ctx;
+let lastTouch=null;
+const SCALE=1.8;
 
-// ── START ─────────────────────────────────────────────────────────────────
-document.getElementById('start-btn').addEventListener('click', startGame);
-
-function startGame() {
-  document.getElementById('loading-screen').classList.add('hidden');
-  setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 900);
-
-  document.getElementById('game-ui').classList.add('active');
-
-  // Detect iOS — AR.js doesn't work reliably on iOS, use demo map + real GPS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-  if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(onGPS, onGPSError, {
-      enableHighAccuracy: true, maximumAge: 2000, timeout: 8000
-    });
-    // Give GPS 4 seconds to lock, then fallback
-    setTimeout(() => {
-      if (!userLat) activateDemoMode();
-    }, 4000);
-  } else {
-    activateDemoMode();
-  }
-
-  // On iOS: always use the map view (real GPS coords, no AR camera)
-  if (isIOS) {
-    document.getElementById('demo-map').classList.add('active');
-    // override initQuestPositions to use real GPS but map display
-    window._forceMapMode = true;
-  }
-}
-
-let gpsCallCount = 0;
-
-function onGPS(pos) {
-  gpsCallCount++;
-  userLat = pos.coords.latitude;
-  userLng = pos.coords.longitude;
-
-  document.getElementById('gps-dot').classList.remove('searching');
-  document.getElementById('gps-label').textContent = `GPS ±${Math.round(pos.coords.accuracy)}m`;
-
-  // Debug info
-  const debug = document.getElementById('debug-box');
-  if (debug) {
-    debug.innerHTML = `
-      updates: ${gpsCallCount}<br>
-      lat: ${userLat.toFixed(6)}<br>
-      lng: ${userLng.toFixed(6)}<br>
-      originSet: ${!!originLat}<br>
-      x: ${userX.toFixed(1)}m &nbsp; y: ${userY.toFixed(1)}m
-    `;
-  }
-
-  // First lock — store origin and init
-  if (!originLat) {
-    originLat = userLat;
-    originLng = userLng;
-    userX = 0;
-    userY = 0;
-    initQuestPositions();
-    return;
-  }
-
-  // Absolute offset from origin in metres
-  userX = (userLng - originLng) * 111320 * Math.cos(originLat * Math.PI / 180);
-  userY = -((userLat - originLat) * 111320);
-
-  updateGameUI();
-  if (window._forceMapMode || demoMode) drawMap();
-}
-
-function onGPSError() {
-  if (!demoMode) activateDemoMode();
-}
-
-function activateDemoMode() {
-  demoMode = true;
-  userLat = 38.7169; userLng = -9.1399; // Lisbon placeholder
-  userX = 0; userY = 0;
-  document.getElementById('gps-dot').classList.remove('searching');
-  document.getElementById('gps-dot').style.background = '#c9a84c';
-  document.getElementById('gps-label').textContent = 'Demo Mode';
-
-  document.getElementById('demo-map').classList.add('active');
-  initQuestPositions();
-  startDemoLoop();
-  initCanvas();
-}
-
-// ── QUEST POSITIONS ────────────────────────────────────────────────────────
-function initQuestPositions() {
-  if (demoMode) {
-    questPositions = QUESTS.map(q => ({
-      x: q.demoOffset.x,
-      y: q.demoOffset.y
-    }));
-  } else {
-    // Place quests at real GPS offsets (~100-200m each direction)
-    questPositions = QUESTS.map(q => ({
-      lat: userLat + (q.demoOffset.y / 111320),
-      lng: userLng + (q.demoOffset.x / (111320 * Math.cos(userLat * Math.PI / 180))),
-      // Also store as relative x/y for map drawing
-      x: q.demoOffset.x,
-      y: q.demoOffset.y
-    }));
-
-    if (!window._forceMapMode) {
-      injectARScene();
-    } else {
-      // iOS: show map with real GPS movement
-      initCanvas();
-    }
-  }
-  buildPOIList();
-  updateGameUI();
-}
-
-// ── GPS DISTANCE ──────────────────────────────────────────────────────────
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-function getDistance(idx) {
-  if (!questPositions[idx]) return 9999;
-  if (demoMode) {
-    const dx = questPositions[idx].x - userX;
-    const dy = questPositions[idx].y - userY;
-    return Math.sqrt(dx*dx + dy*dy);
-  } else {
-    // Always use real GPS haversine when we have coordinates
-    return haversine(userLat, userLng, questPositions[idx].lat, questPositions[idx].lng);
-  }
-}
-
-// ── UI ─────────────────────────────────────────────────────────────────────
-function buildPOIList() {
-  const list = document.getElementById('poi-list');
-  list.innerHTML = '';
-  QUESTS.forEach((q, i) => {
-    const card = document.createElement('div');
-    card.className = 'poi-card' + (i === activeQuestIdx ? ' active' : '') + (foundIds.has(q.id) ? ' found' : '');
-    card.innerHTML = `
-      <div class="poi-icon">${q.icon}</div>
-      <div class="poi-name">${q.name}</div>
-      <div class="poi-dist" id="poi-dist-${i}">— m</div>
-      ${foundIds.has(q.id) ? '<div class="poi-found-badge">✓ FOUND</div>' : ''}
-    `;
-    card.addEventListener('click', () => { activeQuestIdx = i; updateGameUI(); buildPOIList(); });
-    list.appendChild(card);
-  });
-}
-
-function updateGameUI() {
-  const q = QUESTS[activeQuestIdx];
-  document.getElementById('quest-name').textContent = q.name;
-  document.getElementById('quest-desc').textContent = q.desc;
-  document.getElementById('token-count').textContent = `⚜ ${tokens}`;
-
-  // Update all distances
-  QUESTS.forEach((_, i) => {
-    const d = getDistance(i);
-    const el = document.getElementById(`poi-dist-${i}`);
-    if (el) el.textContent = d < 9999 ? `${Math.round(d)} m` : '— m';
-  });
-
-  // Active quest distance bar
-  const dist = getDistance(activeQuestIdx);
-  const maxDist = 300;
-  const progress = Math.max(0, Math.min(100, 100 - (dist / maxDist * 100)));
-  document.getElementById('dist-fill').style.width = progress + '%';
-  document.getElementById('dist-val').textContent = dist < 9999 ? `${Math.round(dist)} m` : '— m';
-
-  // Check proximity
-  if (!foundIds.has(q.id) && dist < q.radius) {
-    triggerFound(activeQuestIdx);
-  }
-}
-
-function triggerFound(idx) {
-  const q = QUESTS[idx];
-  foundIds.add(q.id);
-  tokens += q.tokens;
-
-  document.getElementById('found-icon').textContent = q.icon;
-  document.getElementById('found-title').textContent = q.name.toUpperCase();
-  document.getElementById('found-desc').textContent = q.lore;
-  document.getElementById('found-reward').textContent = `+${q.tokens} ⚜`;
-  document.getElementById('found-popup').classList.add('show');
-
-  buildPOIList();
-  updateGameUI();
-}
-
-document.getElementById('found-close').addEventListener('click', () => {
-  document.getElementById('found-popup').classList.remove('show');
-  // Auto-select next unfound quest
-  for (let i = 0; i < QUESTS.length; i++) {
-    if (!foundIds.has(QUESTS[i].id)) { activeQuestIdx = i; break; }
-  }
-  updateGameUI();
-  buildPOIList();
+// ── START ──
+document.getElementById('start-btn').addEventListener('click', ()=>{
+  document.getElementById('start-screen').classList.remove('active');
+  document.getElementById('game').classList.add('active');
+  setupCanvas();
+  buildPOI();
+  requestAnimationFrame(drawLoop);
+  startGPS();
 });
 
-// ── DEMO LOOP ─────────────────────────────────────────────────────────────
-let keys = {};
-document.addEventListener('keydown', e => keys[e.key] = true);
-document.addEventListener('keyup', e => keys[e.key] = false);
-
-// Touch movement for mobile demo
-let touchStart = null;
-document.addEventListener('touchstart', e => {
-  touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-}, { passive: true });
-document.addEventListener('touchmove', e => {
-  if (!touchStart || !demoMode) return;
-  const dx = e.touches[0].clientX - touchStart.x;
-  const dy = e.touches[0].clientY - touchStart.y;
-  userX += dx * 0.3;
-  userY += dy * 0.3;
-  touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  updateGameUI();
-  drawMap();
-}, { passive: true });
-
-function startDemoLoop() {
-  const speed = 2;
-  setInterval(() => {
-    let moved = false;
-    if (keys['ArrowUp'] || keys['w']) { userY -= speed; moved = true; }
-    if (keys['ArrowDown'] || keys['s']) { userY += speed; moved = true; }
-    if (keys['ArrowLeft'] || keys['a']) { userX -= speed; moved = true; }
-    if (keys['ArrowRight'] || keys['d']) { userX += speed; moved = true; }
-    if (moved) { updateGameUI(); drawMap(); }
-  }, 30);
+// ── CANVAS ──
+function setupCanvas(){
+  canvas=document.getElementById('canvas');
+  ctx=canvas.getContext('2d');
+  sizeCanvas();
+  window.addEventListener('resize', sizeCanvas);
+}
+function sizeCanvas(){
+  const wrap=document.getElementById('map-wrap');
+  W=canvas.width=wrap.clientWidth;
+  H=canvas.height=wrap.clientHeight;
 }
 
-// ── CANVAS MAP (demo mode) ─────────────────────────────────────────────────
-function initCanvas() {
-  const canvas = document.getElementById('map-canvas');
-  resizeCanvas(canvas);
-  window.addEventListener('resize', () => resizeCanvas(canvas));
-  drawMap();
+// ── GPS — uses polling via getCurrentPosition (most reliable on iOS) ──
+function startGPS(){
+  if(!navigator.geolocation){ startDemo(); return; }
+  doGPSPoll();
+  // Fallback to demo after 8s if no lock
+  setTimeout(()=>{ if(!originLat) startDemo(); }, 8000);
 }
 
-function resizeCanvas(canvas) {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  drawMap();
+function doGPSPoll(){
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      gpsCount++;
+      const lat=pos.coords.latitude;
+      const lng=pos.coords.longitude;
+      const acc=Math.round(pos.coords.accuracy);
+
+      if(!originLat){
+        originLat=lat; originLng=lng;
+        posX=0; posY=0;
+        placeQuests();
+      } else {
+        posX = (lng-originLng)*111320*Math.cos(originLat*Math.PI/180);
+        posY = -((lat-originLat)*111320);
+      }
+
+      setDebug(`GPS ±${acc}m | updates: ${gpsCount}<br>x: ${posX.toFixed(1)}m  y: ${posY.toFixed(1)}m<br>lat: ${lat.toFixed(5)}  lng: ${lng.toFixed(5)}`);
+      checkProx(); updatePanel();
+
+      // Schedule next poll
+      setTimeout(doGPSPoll, 2000);
+    },
+    err => {
+      setDebug(`GPS err: ${err.message}`);
+      if(!originLat) startDemo();
+      else setTimeout(doGPSPoll, 3000); // retry
+    },
+    { enableHighAccuracy:true, timeout:7000, maximumAge:0 }
+  );
 }
 
-function drawMap() {
-  const canvas = document.getElementById('map-canvas');
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  const cx = W / 2, cy = H / 2;
-  const scale = 1.5; // pixels per metre
+function startDemo(){
+  if(demoMode) return;
+  demoMode=true;
+  originLat=38.7169; originLng=-9.1399;
+  posX=0; posY=0;
+  placeQuests();
+  setDebug('DEMO MODE — drag map to move');
+}
 
-  ctx.clearRect(0, 0, W, H);
+function placeQuests(){
+  qPos=QUESTS.map(q=>({x:q.offset.x, y:q.offset.y}));
+  buildPOI(); updatePanel();
+}
 
-  // background grid
-  ctx.strokeStyle = 'rgba(201,168,76,0.04)';
-  ctx.lineWidth = 1;
-  const gridSize = 40;
-  const offX = ((cx - userX * scale) % gridSize + gridSize) % gridSize;
-  const offY = ((cy - userY * scale) % gridSize + gridSize) % gridSize;
-  for (let x = offX; x < W; x += gridSize) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-  }
-  for (let y = offY; y < H; y += gridSize) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
+// ── DISTANCE ──
+function dist(i){
+  if(!qPos[i]) return 9999;
+  const dx=qPos[i].x-posX, dy=qPos[i].y-posY;
+  return Math.sqrt(dx*dx+dy*dy);
+}
 
-  // draw quest markers
-  QUESTS.forEach((q, i) => {
-    const qx = cx + (questPositions[i].x - userX) * scale;
-    const qy = cy + (questPositions[i].y - userY) * scale;
-    const found = foundIds.has(q.id);
-    const active = i === activeQuestIdx;
-    const dist = getDistance(i);
+// ── PROXIMITY ──
+function checkProx(){
+  const q=QUESTS[activeIdx];
+  if(!found.has(q.id) && dist(activeIdx)<q.radius) showFound(activeIdx);
+}
 
-    // pulse ring for active
-    if (active && !found) {
-      const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 400);
-      ctx.beginPath();
-      ctx.arc(qx, qy, q.radius * scale * (1 + pulse * 0.5), 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(201,168,76,${0.15 * pulse})`;
-      ctx.lineWidth = 1;
-      ctx.stroke();
+function showFound(i){
+  const q=QUESTS[i];
+  found.add(q.id); totalTokens+=q.tokens;
+  document.getElementById('f-icon').textContent=q.icon;
+  document.getElementById('f-title').textContent=q.name.toUpperCase();
+  document.getElementById('f-desc').textContent=q.lore;
+  document.getElementById('f-reward').textContent=`+${q.tokens} ⚜`;
+  document.getElementById('found-popup').classList.add('show');
+  buildPOI();
+}
+
+document.getElementById('found-close').addEventListener('click',()=>{
+  document.getElementById('found-popup').classList.remove('show');
+  for(let i=0;i<QUESTS.length;i++){ if(!found.has(QUESTS[i].id)){activeIdx=i;break;} }
+  updatePanel(); buildPOI();
+});
+
+// ── PANEL ──
+function updatePanel(){
+  const q=QUESTS[activeIdx];
+  document.getElementById('q-name').textContent=q.name;
+  document.getElementById('q-lore').textContent=q.desc;
+  document.getElementById('tokens').textContent=`⚜ ${totalTokens}`;
+  const d=dist(activeIdx);
+  document.getElementById('dist-fill').style.width=(d<9999?Math.max(0,Math.min(100,100-(d/300*100))):0)+'%';
+  document.getElementById('dist-val').textContent=d<9999?`${Math.round(d)} m`:'— m';
+  QUESTS.forEach((_,i)=>{
+    const el=document.getElementById(`pd-${i}`);
+    const d2=dist(i);
+    if(el) el.textContent=d2<9999?`${Math.round(d2)} m`:'— m';
+  });
+}
+
+function buildPOI(){
+  const list=document.getElementById('poi-list');
+  list.innerHTML='';
+  QUESTS.forEach((q,i)=>{
+    const isF=found.has(q.id), isA=i===activeIdx;
+    const c=document.createElement('div');
+    c.className=`poi-card${isA?' active':''}${isF?' found':''}`;
+    c.innerHTML=`<div class="poi-icon">${q.icon}</div>
+      <div class="poi-name">${q.name}</div>
+      <div class="poi-dist" id="pd-${i}">— m</div>
+      ${isF?'<div class="poi-found">✓ FOUND</div>':''}`;
+    c.onclick=()=>{ activeIdx=i; updatePanel(); buildPOI(); };
+    list.appendChild(c);
+  });
+  updatePanel();
+}
+
+// ── DRAW ──
+function drawLoop(){
+  requestAnimationFrame(drawLoop);
+  if(!W||!H) return;
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2, cy=H/2, t=Date.now();
+
+  // Grid
+  ctx.strokeStyle='rgba(201,168,76,0.04)'; ctx.lineWidth=1;
+  const gs=50;
+  const ox=((cx-posX*SCALE)%gs+gs)%gs;
+  const oy=((cy-posY*SCALE)%gs+gs)%gs;
+  for(let x=ox;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=oy;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // Quests
+  QUESTS.forEach((q,i)=>{
+    if(!qPos[i]) return;
+    const qx=cx+(qPos[i].x-posX)*SCALE;
+    const qy=cy+(qPos[i].y-posY)*SCALE;
+    const isF=found.has(q.id), isA=i===activeIdx;
+
+    // Dashed line to active
+    if(isA&&!isF){
+      ctx.save(); ctx.setLineDash([4,6]);
+      ctx.strokeStyle='rgba(201,168,76,0.1)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(qx,qy); ctx.stroke();
+      ctx.restore();
     }
 
-    // trigger radius
-    ctx.beginPath();
-    ctx.arc(qx, qy, q.radius * scale, 0, Math.PI * 2);
-    ctx.strokeStyle = found ? 'rgba(74,154,90,0.3)' : (active ? 'rgba(201,168,76,0.3)' : 'rgba(201,168,76,0.1)');
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = found ? 'rgba(74,154,90,0.05)' : (active ? 'rgba(201,168,76,0.05)' : 'transparent');
-    ctx.fill();
-
-    // marker
-    ctx.beginPath();
-    ctx.arc(qx, qy, 12, 0, Math.PI * 2);
-    ctx.fillStyle = found ? '#1a4a2a' : (active ? 'rgba(201,168,76,0.2)' : 'rgba(20,15,10,0.8)');
-    ctx.fill();
-    ctx.strokeStyle = found ? '#4a9a5a' : (active ? '#c9a84c' : 'rgba(201,168,76,0.4)');
-    ctx.lineWidth = active ? 2 : 1;
-    ctx.stroke();
-
-    // icon
-    ctx.font = '14px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(q.icon, qx, qy);
-
-    // label
-    ctx.font = '10px Crimson Pro, serif';
-    ctx.fillStyle = found ? '#4a9a5a' : (active ? '#c9a84c' : 'rgba(201,168,76,0.5)');
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(q.name, qx, qy + 16);
-
-    // distance line to active
-    if (active && !found) {
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(qx, qy);
-      ctx.strokeStyle = 'rgba(201,168,76,0.15)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 6]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+    // Pulse
+    if(isA&&!isF){
+      const p=0.5+0.5*Math.sin(t/500);
+      ctx.beginPath(); ctx.arc(qx,qy,q.radius*SCALE*(1+p*0.35),0,Math.PI*2);
+      ctx.strokeStyle=`rgba(201,168,76,${0.1*p})`; ctx.lineWidth=1; ctx.stroke();
     }
+
+    // Radius
+    ctx.beginPath(); ctx.arc(qx,qy,q.radius*SCALE,0,Math.PI*2);
+    ctx.strokeStyle=isF?'rgba(74,154,90,0.2)':isA?'rgba(201,168,76,0.2)':'rgba(201,168,76,0.06)';
+    ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=isF?'rgba(74,154,90,0.04)':isA?'rgba(201,168,76,0.04)':'transparent';
+    ctx.fill();
+
+    // Marker
+    ctx.beginPath(); ctx.arc(qx,qy,14,0,Math.PI*2);
+    ctx.fillStyle=isF?'#0d2a12':isA?'rgba(201,168,76,0.12)':'rgba(10,7,5,0.85)';
+    ctx.fill();
+    ctx.strokeStyle=isF?'#4a9a5a':isA?'#c9a84c':'rgba(201,168,76,0.25)';
+    ctx.lineWidth=isA?2:1; ctx.stroke();
+
+    ctx.font='13px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(q.icon,qx,qy);
+
+    ctx.font='9px serif'; ctx.textBaseline='top';
+    ctx.fillStyle=isF?'#4a9a5a':isA?'#c9a84c':'rgba(201,168,76,0.4)';
+    ctx.fillText(q.name,qx,qy+17);
   });
 
-  // user marker
-  ctx.beginPath();
-  ctx.arc(cx, cy, 8, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(201,168,76,0.9)';
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(201,168,76,0.3)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // user direction arrow
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(compassAngle);
-  ctx.beginPath();
-  ctx.moveTo(0, -20);
-  ctx.lineTo(5, -8);
-  ctx.lineTo(-5, -8);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(201,168,76,0.5)';
-  ctx.fill();
-  ctx.restore();
-
-  // instructions
-  ctx.font = '11px Crimson Pro, serif';
-  ctx.fillStyle = 'rgba(201,168,76,0.3)';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillText('Arrow keys / WASD to move  •  Touch drag on mobile', W / 2, 60);
-
-  requestAnimationFrame(drawMap);
+  // Player
+  const p2=0.5+0.5*Math.sin(t/350);
+  ctx.beginPath(); ctx.arc(cx,cy,12+p2*2,0,Math.PI*2);
+  ctx.strokeStyle=`rgba(201,168,76,${0.12*p2})`; ctx.lineWidth=2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,7,0,Math.PI*2);
+  ctx.fillStyle='#c9a84c'; ctx.fill();
+  ctx.strokeStyle='#f0d080'; ctx.lineWidth=1.5; ctx.stroke();
 }
 
-// ── AR SCENE (real GPS mode) ───────────────────────────────────────────────
-function injectARScene() {
-  // Load A-Frame + AR.js dynamically
-  const aframeScript = document.createElement('script');
-  aframeScript.src = 'https://aframe.io/releases/1.6.0/aframe.min.js';
-  document.head.appendChild(aframeScript);
+// ── DEBUG ──
+function setDebug(html){ const el=document.getElementById('debug'); if(el) el.innerHTML=html; }
 
-  aframeScript.onload = () => {
-    const arScript = document.createElement('script');
-    arScript.src = 'https://raw.githack.com/AR-js-org/AR.js/3.4.7/aframe/build/aframe-ar.js';
-    document.head.appendChild(arScript);
+// ── KEYBOARD ──
+document.addEventListener('keydown',e=>keys[e.key]=true);
+document.addEventListener('keyup',e=>keys[e.key]=false);
+setInterval(()=>{
+  if(!demoMode) return;
+  const spd=3; let moved=false;
+  if(keys['ArrowUp']   ||keys['w']){posY-=spd;moved=true;}
+  if(keys['ArrowDown'] ||keys['s']){posY+=spd;moved=true;}
+  if(keys['ArrowLeft'] ||keys['a']){posX-=spd;moved=true;}
+  if(keys['ArrowRight']||keys['d']){posX+=spd;moved=true;}
+  if(moved){checkProx();updatePanel();}
+},30);
 
-    arScript.onload = () => buildARScene();
-  };
-}
-
-function buildARScene() {
-  const container = document.getElementById('ar-container');
-  container.classList.add('active');
-
-  let entitiesHTML = '';
-  QUESTS.forEach((q, i) => {
-    if (!questPositions[i]) return;
-    entitiesHTML += `
-      <a-text
-        value="${q.icon} ${q.name}"
-        look-at="[gps-new-camera]"
-        scale="40 40 40"
-        color="${q.color}"
-        gps-new-entity-place="latitude: ${questPositions[i].lat}; longitude: ${questPositions[i].lng};"
-      ></a-text>
-      <a-sphere
-        radius="3"
-        color="${q.color}"
-        opacity="0.6"
-        gps-new-entity-place="latitude: ${questPositions[i].lat}; longitude: ${questPositions[i].lng};"
-      ></a-sphere>
-    `;
-  });
-
-  container.innerHTML = `
-    <a-scene
-      vr-mode-ui="enabled: false"
-      arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
-      renderer="antialias: true; alpha: true"
-      style="position:absolute;inset:0;width:100%;height:100%;">
-      <a-camera gps-new-camera="gpsMinDistance: 2"></a-camera>
-      ${entitiesHTML}
-    </a-scene>
-  `;
-}
-
-// ── DEVICE ORIENTATION (compass) ──────────────────────────────────────────
-window.addEventListener('deviceorientationabsolute', e => {
-  if (e.alpha !== null) {
-    compassAngle = e.alpha * Math.PI / 180;
-    document.getElementById('compass-needle').style.transform = `rotate(${e.alpha}deg)`;
-  }
-}, true);
-
-// Simulate slow drift in demo for visual life
-if (!window.DeviceOrientationEvent) {
-  setInterval(() => {
-    compassAngle += 0.005;
-    document.getElementById('compass-needle').style.transform = `rotate(${compassAngle * 180 / Math.PI}deg)`;
-  }, 50);
-}
+// ── TOUCH DRAG (demo) ──
+const mapWrap=document.getElementById('map-wrap');
+mapWrap.addEventListener('touchstart',e=>{
+  lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY};
+},{passive:true});
+mapWrap.addEventListener('touchmove',e=>{
+  if(!lastTouch||!demoMode) return;
+  const dx=e.touches[0].clientX-lastTouch.x;
+  const dy=e.touches[0].clientY-lastTouch.y;
+  posX-=dx/SCALE; posY-=dy/SCALE;
+  lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  checkProx(); updatePanel();
+},{passive:true});
+mapWrap.addEventListener('touchend',()=>lastTouch=null);
 </script>
 </body>
 </html>
