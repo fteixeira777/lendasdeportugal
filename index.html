@@ -550,28 +550,49 @@ function startGame() {
 
   document.getElementById('game-ui').classList.add('active');
 
-  // Try real GPS first
+  // Detect iOS — AR.js doesn't work reliably on iOS, use demo map + real GPS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   if (navigator.geolocation) {
     navigator.geolocation.watchPosition(onGPS, onGPSError, {
       enableHighAccuracy: true, maximumAge: 2000, timeout: 8000
     });
-    // Give GPS 4 seconds, then fallback to demo
+    // Give GPS 4 seconds to lock, then fallback
     setTimeout(() => {
       if (!userLat) activateDemoMode();
     }, 4000);
   } else {
     activateDemoMode();
   }
+
+  // On iOS: always use the map view (real GPS coords, no AR camera)
+  if (isIOS) {
+    document.getElementById('demo-map').classList.add('active');
+    // override initQuestPositions to use real GPS but map display
+    window._forceMapMode = true;
+  }
 }
 
 function onGPS(pos) {
+  const prevLat = userLat, prevLng = userLng;
   userLat = pos.coords.latitude;
   userLng = pos.coords.longitude;
+
   document.getElementById('gps-dot').classList.remove('searching');
   document.getElementById('gps-label').textContent = `GPS ±${Math.round(pos.coords.accuracy)}m`;
 
-  if (!questPositions.length) initQuestPositions();
+  if (!questPositions.length) {
+    initQuestPositions();
+  } else if (window._forceMapMode && prevLat) {
+    // Convert real GPS movement to map x/y offset
+    const dx = (userLng - prevLng) * 111320 * Math.cos(userLat * Math.PI / 180);
+    const dy = (userLat - prevLat) * 111320;
+    userX += dx;
+    userY -= dy; // invert Y for screen coords
+  }
+
   updateGameUI();
+  if (window._forceMapMode) drawMap();
 }
 
 function onGPSError() {
@@ -600,12 +621,21 @@ function initQuestPositions() {
       y: q.demoOffset.y
     }));
   } else {
-    // Place quests at real GPS offsets (~100m each direction)
+    // Place quests at real GPS offsets (~100-200m each direction)
     questPositions = QUESTS.map(q => ({
       lat: userLat + (q.demoOffset.y / 111320),
-      lng: userLng + (q.demoOffset.x / (111320 * Math.cos(userLat * Math.PI / 180)))
+      lng: userLng + (q.demoOffset.x / (111320 * Math.cos(userLat * Math.PI / 180))),
+      // Also store as relative x/y for map drawing
+      x: q.demoOffset.x,
+      y: q.demoOffset.y
     }));
-    injectARScene();
+
+    if (!window._forceMapMode) {
+      injectARScene();
+    } else {
+      // iOS: show map with real GPS movement
+      initCanvas();
+    }
   }
   buildPOIList();
   updateGameUI();
